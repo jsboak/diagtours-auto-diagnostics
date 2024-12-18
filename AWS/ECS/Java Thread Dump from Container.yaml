@@ -1,0 +1,151 @@
+- defaultTab: nodes
+  description: |-
+    Performs a thread-dump of a Java app running in ECS and sends the output to S3
+
+    This Job uses the [ECS Run Command Plugin](https://docs.rundeck.com/docs/manual/workflow-steps/aws-ecs-fargate.html#send-commands-to-ecs-containers) to send commands to containers running on ECS.
+
+    The output of the command is then sent to a textfile in S3 using the [Lambda Custom Code Plugin](https://docs.rundeck.com/docs/manual/workflow-steps/aws-lambda.html#lambda-custom-code-execution).
+    This is meant to demonstrate that certain diagnostics are best saved and viewed through storage services - such as S3.
+  executionEnabled: true
+  group: AWS/ECS
+  id: e72fc138-171b-4253-bf77-411f06d2bb09
+  loglevel: INFO
+  name: Java Thread Dump from Container
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - label: AWS Region
+    name: aws-region
+    optionValuesPluginType: aws-regions-job-options
+    required: true
+  - description: Name of the ECS Cluster
+    label: Cluster Name
+    name: cluster-name
+    required: true
+  - description: Name of the container running in ECS
+    label: Container Name
+    name: container-name
+    required: true
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is **_not_** required to invoke this Job.
+    label: PagerDuty Incident ID
+    name: pd_incident_id
+  - description: The ID of the ECS Task where the container is running
+    label: Task ID
+    name: task-id
+    required: true
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - configuration:
+        cluster: ${option.cluster-name}
+        command: pgrep java
+        container: ${option.container-name}
+        region: ${option.aws-region}
+        task: ${option.task-id}
+      description: Retrieve Java Process ID
+      nodeStep: false
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'true'
+            logData: 'true'
+            name: process-id
+            regex: .*(\d+).*
+          type: key-value-data-multilines
+      type: aws-ecs-run-command
+    - configuration:
+        cluster: ${option.cluster-name}
+        command: sudo -u rundeck jstack ${data.process-id}
+        container: ${option.container-name}
+        region: ${option.aws-region}
+        task: ${option.task-id}
+      description: Perform Jstack Thread Dump
+      nodeStep: false
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'true'
+            logData: 'false'
+            name: jstack-output
+            regex: (.*)
+          type: key-value-data-multilines
+      type: aws-ecs-run-command
+    - configuration:
+        deleteFuncAfter: 'true'
+        eventPayload: '{"Key1":"Value1","Key2":"Value2"}'
+        executionRoleArn: lambda-execution-role-arn
+        functionCode: "import time\nimport boto3\n\ndef lambda_handler(event,context):\n\
+          \n    #Captured data-variable from prior step\n    jstack_output=\"\"\"\
+          ${data.jstack_output}\"\"\"\n    \n    #Change 'automated-diagnostics' to\
+          \ specify your S3 bucket\n    s3_bucket = 'automated-diagnostics'\n    \n\
+          \    s3=boto3.resource('s3')\n    \n    try:\n        object=s3.Object(s3_bucket,\
+          \ 'jstack-output.txt')\n        object.put(Body=jstack_output)\n       \
+          \ result=\"Successfully sent Jstack Output to S3 bucket: \" + s3_bucket\n\
+          \        \n    except:\n        result=\"Could Not Send Data to S3\"\n \
+          \       \n    \n    return {\n        \"Result\":result\n    }\n    \n \
+          \   "
+        handlerFunctionName: lambda_handler
+        region: ${option.aws-region}
+        runtime: python3.9
+        tags: '{"Key1":"Value1","Key2":"Value2"}'
+      description: Send Jstack Output to S3
+      nodeStep: false
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: jstack_status
+            regex: (.*)
+          type: key-value-data-multilines
+      type: aws-lambda-custom-code-execution
+    - configuration:
+        incident_id: ${option.pd_incident_id}
+        note: 'Jstack Status: ${data.jstack_status}'
+      description: Send Diagnostics to PagerDuty
+      errorhandler:
+        configuration:
+          text: Please provide PagerDuty API token to send diagnostics to Incident.
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: progress-badge
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: node-first
+  tags: 'aws,ecs,lambda'
+  uuid: e72fc138-171b-4253-bf77-411f06d2bb09
+

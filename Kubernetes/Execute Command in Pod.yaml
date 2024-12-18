@@ -1,0 +1,78 @@
+- defaultTab: nodes
+  description: "Send a command to an individual pod in a specific namespace.\n\nThis\
+    \ Job sends a command to a pod in a specified namespace.  \n\nIf using PagerDuty\
+    \ Runbook Automation (SaaS), then this Job is designed to be run on an [**Enterprise\
+    \ Runner**](https://docs.rundeck.com/docs/administration/runner/#architecture).\
+    \ Follow the documentation and install the Runner in a location that can communicate\
+    \ with your Kubernetes cluster."
+  executionEnabled: true
+  group: Kubernetes
+  id: 20ba39cb-487f-4d94-baf4-c8a888f3dda8
+  loglevel: INFO
+  name: Execute Command in Pod
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: This will be executed as `/bin/bash` within the specified container.
+    label: Command
+    name: command
+    required: true
+  - description: Namespace where the Pod resides
+    label: Namespace
+    name: namespace
+    required: true
+    value: default
+  - description: Pod to send specific command to.
+    label: Pod Name
+    name: pod_name
+    required: true
+  - description: 'Optionally add the container name within the pod. By default, the
+      command will execute in the first container listed in the pod definition.'
+    label: Container Name
+    name: container_name
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - configuration:
+        command: ${option.command}
+        container: ${option.container_name}
+        name: ${option.pod_name}
+        namespace: ${option.namespace}
+        shell: /bin/bash
+        verify_ssl: 'false'
+      description: Execute Command
+      nodeStep: true
+      type: Kubernetes-Execute-Step
+    keepgoing: false
+    strategy: node-first
+  tags: kubernetes
+  uuid: 20ba39cb-487f-4d94-baf4-c8a888f3dda8
+

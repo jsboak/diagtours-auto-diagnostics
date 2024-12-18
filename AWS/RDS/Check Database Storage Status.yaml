@@ -1,0 +1,110 @@
+- defaultTab: nodes
+  description: |+
+    Checks RDS database for the instance status.
+
+    This Job queries for the RDS instance status and description.  This can be especially useful if the RDS instance has run out of storage.
+    More details on working with RDS Storage can be found [here](https://docs.amazonaws.cn/en_us/AmazonRDS/latest/UserGuide/USER_PIOPS.StorageTypes.html).
+
+    #### Permissions required by the IAM Role or AWS credentials to execute this job:
+
+    **rds:DescribeDBInstances**
+
+  executionEnabled: true
+  group: AWS/RDS
+  id: d5db4794-fb37-43d2-b44a-9ae86eccc3c8
+  loglevel: INFO
+  name: Check Database Storage Status
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is **_not_** required to invoke this Job.
+    label: PagerDuty Incident ID
+    name: pd_incident_id
+  - description: Name of the specific RDS instance to check
+    label: RDS Instance
+    name: rds_instance
+    required: true
+  - label: AWS Region
+    name: region
+    optionValuesPluginType: aws-regions-job-options
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - configuration:
+        region: ${option.region}
+        target: ${option.rds_instance}
+      description: Retrieve RDS Instance Status
+      nodeStep: false
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: instance_status
+            regex: (.*)
+          type: key-value-data-multilines
+        - config:
+            contextVariable: rds-health
+            doNothing: 'true'
+            mute: 'false'
+            regex: '.*instance status is: available'
+            statusSymbol: ✅
+            text: Healthy
+          type: progress-badges
+        - config:
+            contextVariable: rds-health
+            doNothing: 'true'
+            mute: 'false'
+            regex: '.*instance status is: \[Failed|Insufficient-capacity|Storage-full\]'
+            statusSymbol: ❌
+            text: Unhealthy
+          type: progress-badges
+      type: aws-rds-status
+    - configuration:
+        incident_id: ${option.pd_incident_id}
+        note: '${data.rds-health}\n\nClick here for detailed diagnostics: ${job.url}#output'
+      description: Send Diagnostics to PagerDuty
+      errorhandler:
+        configuration:
+          text: Please provide PagerDuty API token to send diagnostics to Incident.
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: progress-badge
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: node-first
+  tags: 'aws,rds'
+  uuid: d5db4794-fb37-43d2-b44a-9ae86eccc3c8
+

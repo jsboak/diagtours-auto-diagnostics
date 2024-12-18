@@ -1,0 +1,110 @@
+- defaultTab: nodes
+  description: |-
+    Checks stopped ECS Tasks for errors and provides detailed information on the reason for the errors.
+
+    This Job queries for any _stopped_ ECS Tasks and their associated error messages.
+
+    Detailed explanations for all of the error messages can be found in AWS's documentation [here](https://docs.aws.amazon.com/AmazonECS/latest/userguide/stopped-task-error-codes.html).
+
+    #### Permissions required by the IAM Role or AWS credentials to execute this job:
+    **ecs:ListTasks**<br>
+    **ecs:DescribeTasks**<br>
+  executionEnabled: true
+  group: AWS/ECS
+  id: 5d5b9467-cfea-4482-8bfb-346704c9f998
+  loglevel: INFO
+  name: Stopped ECS Task Errors
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: The name of the ECS Cluster
+    label: ECS Cluster Name
+    name: cluster-name
+    required: true
+    value: default
+  - description: The AWS region of the ECS Cluster
+    label: AWS Region
+    name: region
+    required: true
+    value: us-west-1
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is **_not_** required to invoke this Job.
+    label: PagerDuty Incident ID
+    name: pd_incident_id
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - configuration:
+        clusterName: ${option.cluster_name}
+        region: ${option.region}
+      description: Stopped ECS Task Error
+      nodeStep: false
+      plugins:
+        LogFilter:
+        - config:
+            contextVariable: ecs-health
+            doNothing: 'true'
+            mute: 'false'
+            regex: Found 0 failed ECS tasks
+            statusSymbol: ✅
+            text: All ECS tasks are healthy
+          type: progress-badges
+        - config:
+            contextVariable: ecs-health
+            doNothing: 'true'
+            mute: 'false'
+            regex: Found [^0] failed ECS tasks.*
+            statusSymbol: ❌
+            text: Found failed ECS tasks
+          type: progress-badges
+      type: aws-ecs-stopped-tasks
+    - configuration:
+        incident_id: ${option.pd_incident_id}
+        note: 'ECS Health Check: ${data.ecs-health}\n\nClick here for detailed diagnostics:
+          ${job.url}#output'
+      description: Send Diagnostics to PagerDuty
+      errorhandler:
+        configuration:
+          fail: 'false'
+          halt: 'true'
+          status: 'Please provide PagerDuty API token, User Email, and Incident ID
+            to send diagnostics to Incident.'
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: flow-control
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: node-first
+  tags: 'aws,ecs'
+  uuid: 5d5b9467-cfea-4482-8bfb-346704c9f998
+

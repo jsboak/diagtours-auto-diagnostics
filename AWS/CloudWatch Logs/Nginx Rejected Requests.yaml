@@ -1,0 +1,78 @@
+- defaultTab: nodes
+  description: "Query CloudWatch logs to identify rejected requests in Nginx Logs.\
+    \  \n\nThe Job uses the CloudWatch Logs plugin to send a query using the Logs\
+    \ Insights syntax.\n\nClick on **Definition** on the right to see the specific\
+    \ query used for this Job.\n\nClick [here](https://docs.rundeck.com/docs/manual/workflow-steps/aws-cloudwatch.html)\
+    \ for more details on the CloudWatch Logs plugin.\nFor authenticating AWS plugins,\
+    \ follow the **Configure AWS Credentials** Tour."
+  executionEnabled: true
+  group: AWS/CloudWatch Logs
+  id: c8d4503d-8ae5-4e56-8b1a-c2086d407b82
+  loglevel: INFO
+  name: Nginx Rejected Requests
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - enforced: true
+    label: AWS Region
+    name: aws-region
+    required: true
+    value: us-west-1
+    values:
+    - us-east-1
+    - us-east-2
+    - us-west-1
+    valuesListDelimiter: ','
+  - description: The CloudWatch log group - or groups - to query.
+    label: CloudWatch Logs Groups
+    name: cloudwatch-logs-groups
+    required: true
+    value: cloudwatch-log-group-name
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - configuration:
+        '0': '1'
+        cloudWatchLogGroups: ${option.cloudwatch-logs-groups}
+        queryString: |-
+          fields @message
+          | parse @message '* - - [*] "* * *" * * "-" "*"' as remote_addr, timestamp, request_type, location, protocol, response_code, body_bytes_sent, user_agent
+          | filter response_code!="200"
+          | display request_type, location, response_code, remote_addr
+        region: ${option.aws-region}
+        timeUnit: Hours
+      description: Nginx CloudWatch Logs Query
+      nodeStep: false
+      type: aws-query-cloudwatch-logs-step
+    keepgoing: false
+    strategy: node-first
+  uuid: c8d4503d-8ae5-4e56-8b1a-c2086d407b82
+

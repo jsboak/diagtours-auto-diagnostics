@@ -1,0 +1,94 @@
+- defaultTab: nodes
+  description: |-
+    Performs simple test using the psql command
+
+    This Job performs a simple test on the remote Linux host by executing the **`psql`** command.
+
+    The full command used in the job is **`sudo -u postgresql psql`**.  As this may not address your specific setup, you may need to modify this command so that it works for your environment.
+
+    Simply executing `psql` can validate whether the PostgreSQL service is running and accepting connections.
+
+    See the [**Project Readme**](/project/automated-diagnostics/home) for recommended tours on how to add remote-nodes and configure connectivity to them using methods such as SSH or Systems Manager (SSM).
+  executionEnabled: true
+  group: PostgreSQL
+  id: 0b8c6825-4ef8-4cff-b8a1-f73fbd7d0ee7
+  loglevel: INFO
+  name: Test if PostgreSQL Server is Running
+  nodeFilterEditable: true
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: .*
+  nodesSelectedByDefault: true
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is **_not_** required to invoke this Job.
+    label: PagerDuty Incident ID
+    name: pd_incident_id
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - description: Execute psql command on remote node
+      exec: sudo -u postgres psql -l
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: postgres_status
+            regex: (.*)
+          type: key-value-data-multilines
+    - configuration:
+        incident_id: ${option.pd_incident_id}
+        note: 'PostgreSQL Test:\n ${data.postgres_status*}\n\nClick here for detailed
+          diagnostics: ${job.url}#output'
+      description: Send Diagnostics to PagerDuty
+      errorhandler:
+        configuration:
+          text: Please provide PagerDuty API token and Incident ID to send diagnostics
+            to Incident.
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: progress-badge
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: node-first
+  tags: postgresql
+  uuid: 0b8c6825-4ef8-4cff-b8a1-f73fbd7d0ee7
+

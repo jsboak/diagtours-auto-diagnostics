@@ -1,0 +1,73 @@
+- defaultTab: nodes
+  description: "Validates whether the credentials set can add a note to a PagerDuty\
+    \ Incident.  \n\nThe API Token is retrieved from the Project Configuration.\n\n\
+    For more information on this Job, see the **Send Diagnostic Data to PagerDuty**\
+    \ tour."
+  executionEnabled: true
+  group: Validate Integrations
+  id: d966e5c4-badb-48e6-95ad-77bae2cfd47d
+  loglevel: INFO
+  name: PagerDuty Integration
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: Optional.  This field is only required if a **General Access API
+      Token** was used to integrate with PagerDuty.
+    label: PagerDuty User's Email
+    name: pd-email
+  - description: |-
+      ID of the PagerDuty incident.  This can be retrieved from the URL when viewing an incident:
+      `https://your-company.pagerduty.com/incidents/PD-INCIDENT-ID` (the `PD-INCIDENT-ID` portion of the URL for your incident).
+    label: Incident ID
+    name: pd_incident_id
+    required: true
+  - description: This is the text that will be added to the timeline of the chosen
+      incident.
+    label: Test Note
+    name: test-note
+    required: true
+    value: This is a note to test the integration between Runbook Automation and PagerDuty
+      Incidents.
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - configuration:
+        email: ${option.pd-email}
+        incident_id: ${option.pd_incident_id}
+        note: ${option.test-note}
+      description: Send Test Note to PagerDuty Incident
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: node-first
+  tags: pagerduty
+  uuid: d966e5c4-badb-48e6-95ad-77bae2cfd47d
+

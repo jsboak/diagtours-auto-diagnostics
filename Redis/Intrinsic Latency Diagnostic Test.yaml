@@ -1,0 +1,103 @@
+- defaultTab: nodes
+  description: "Runs an Intrinsic Latency test on the Redis Server using the Redis-CLI.\n\
+    \nThis Job runs an intrinsic-latency test on the Redis Server to determine baseline\
+    \ latency of Redis in your specific environment. \nRead more about diagnosing\
+    \ Redis latency issues [here](https://redis.io/docs/reference/optimization/latency/).\n\
+    \nSee the [**Project Readme**](/project/automated-diagnostics/home) for recommended\
+    \ tours on how to add remote-nodes and configure connectivity to them using methods\
+    \ such as SSH or Systems Manager (SSM)."
+  executionEnabled: true
+  group: Redis
+  id: 518e09a1-351f-4eac-b2d8-c09c111a3f5d
+  loglevel: INFO
+  name: Intrinsic Latency Diagnostic Test
+  nodeFilterEditable: true
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: .*
+  nodesSelectedByDefault: true
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: Number of seconds that the `--intrinsic-latency` test should run.
+    enforced: true
+    label: Duration (Seconds) of Test
+    name: test_seconds
+    required: true
+    value: '60'
+    values:
+    - '100'
+    - '150'
+    - '30'
+    - '60'
+    valuesListDelimiter: ','
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is **_not_** required to invoke this Job.
+    label: PagerDuty Incident ID
+    name: pd_incident_id
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - description: Run the --intrinsic-latency Test for Specified Duration
+      exec: redis-cli --intrinsic-latency ${option.test_seconds}
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: latency_test
+            regex: (.*)
+          type: key-value-data-multilines
+    - configuration:
+        incident_id: ${option.pd_incident_id}
+        note: 'Redis Latency Test:\n ${data.latency_test*}\n\nClick here for detailed
+          diagnostics: ${job.url}#output'
+      description: Send Diagnostics to PagerDuty
+      errorhandler:
+        configuration:
+          text: Please provide PagerDuty API token and Incident ID to send diagnostics
+            to Incident.
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: progress-badge
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: node-first
+  tags: redis
+  uuid: 518e09a1-351f-4eac-b2d8-c09c111a3f5d
+

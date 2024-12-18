@@ -1,0 +1,161 @@
+- defaultTab: nodes
+  description: |-
+    Retrieve common error messages from Syslog by searching for common error phrases.
+
+    This Job executes commands on remote Linux instances and retrieves common error messages from Syslog.
+
+    Click on **Definition** to see the specific commands used in this Job.
+
+    See the [**Project Readme**](/project/automated-diagnostics/home) for recommended tours on how to add remote-nodes and configure connectivity to them using methods such as SSH or Systems Manager (SSM).
+  executionEnabled: true
+  group: Linux
+  id: ab44526f-76bb-4857-a70b-b8bfab81ba94
+  loglevel: INFO
+  name: Retrieve Errors from Syslog
+  nodeFilterEditable: true
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '3'
+    filter: .*
+  nodesSelectedByDefault: true
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is **_not_** required to invoke this Job.
+    label: Incident ID
+    name: pd_incident_id
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - description: Is it out of memory?
+      exec: grep "Out\ of\ memory" /var/log/syslog || true
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: out_of_memory
+            regex: (.*)
+          type: key-value-data-multilines
+    - description: Memory management update failed
+      exec: grep "ERROR:\ mmu_update\ failed" /var/log/syslog || true
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: memory_management
+            regex: (.*)
+          type: key-value-data-multilines
+    - description: I/O Error
+      exec: grep "I/O\ error" /var/log/syslog || true
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: io_error
+            regex: (.*)
+          type: key-value-data-multilines
+    - description: Runaway Loop
+      exec: grep "request_module:\ runaway\ loop\ modprobe\ binfmt-464c" /var/log/syslog
+        || true
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: runaway_loop
+            regex: (.*)
+          type: key-value-data-multilines
+    - description: Fatal Could Not Load
+      exec: grep "FATAL:\ Could\ not\ load" /var/log/syslog || true
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: could_not_load
+            regex: (.*)
+          type: key-value-data-multilines
+    - description: Invalid Kernel Error
+      exec: grep "ERROR\ Invalid\ kernel:" /var/log/syslog || true
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: kernel_error
+            regex: (.*)
+          type: key-value-data-multilines
+    - description: Error Mounting Filesystem
+      exec: grep "General\ error\ mounting\ filesystems" /var/log/syslog || true
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: filesystem_mount_error
+            regex: (.*)
+          type: key-value-data-multilines
+    - configuration:
+        incident_id: ${option.pd_incident_id}
+        note: '${data.out_of_memory*}\n ${data.memory_management*}\n ${data.io_error*}\n
+          ${data.runaway_loop*}\n ${data.could_not_load*}\n ${data.kernel_error*}\n
+          ${data.filesystem_mount_error*}\n\nClick here for detailed diagnostics:
+          ${job.url}#output'
+      description: Send Diagnostics to PagerDuty
+      errorhandler:
+        configuration:
+          text: Please provide PagerDuty API token and Incident ID to send diagnostics
+            to Incident.
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: progress-badge
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: sequential
+  tags: linux
+  uuid: ab44526f-76bb-4857-a70b-b8bfab81ba94
+

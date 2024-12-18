@@ -1,0 +1,101 @@
+- defaultTab: nodes
+  description: "Retrieve the most recent logs for all pods filtered by label selector.\n\
+    \nThis Job retrieves logs from pods that match a given label selector.  \n\nFor\
+    \ example: `environment=production,tier=frontend`. This will pull logs from pods\
+    \ that have the labels `environment=production` and `tier=frontend`.\n\nFor more\
+    \ information on Labels and Selectors, see [here](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).\n\
+    \nIf using PagerDuty Runbook Automation (SaaS), then this Job is designed to be\
+    \ run on an [**Enterprise Runner**](https://docs.rundeck.com/docs/administration/runner/#architecture).\
+    \ Follow the documentation and install the Runner in a location that can communicate\
+    \ with your Kubernetes cluster."
+  executionEnabled: true
+  group: Kubernetes
+  id: 6774c554-9a54-4c66-b190-b598ed9bf2ab
+  loglevel: INFO
+  name: Retrieve Logs from Kubernetes by Selector Label
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: 'For example, `environment=product,tier=frontend`'
+    label: Label Selector
+    name: kubernetes_selector
+    required: true
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is **_not_** required to invoke this Job.
+    label: PagerDuty Incident ID
+    name: pd_incident_id
+  - description: Choose the Number of Lines to tail from all pods that match the Selector
+      syntax.
+    enforced: true
+    label: Number of Lines to Tail
+    name: tail_lines
+    required: true
+    value: '10'
+    values:
+    - '1'
+    - '10'
+    - '25'
+    - '5'
+    - '50'
+    valuesListDelimiter: ','
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - description: Retrieve Logs from Pods that Match Label Selector
+      exec: kubectl logs -l ${option.kubernetes_selector} --tail ${option.tail_lines}
+      plugins:
+        LogFilter:
+        - config:
+            captureMultipleKeysValues: 'false'
+            hideOutput: 'false'
+            logData: 'true'
+            name: recent_k8s_logs
+            regex: (.*)
+          type: key-value-data-multilines
+    - configuration:
+        incident_id: ${option.pd_incident_id}
+        note: Recent Kubernetes Logs:\n ${data.recent_k8s_logs*}
+      description: Send Diagnostics to PagerDuty
+      errorhandler:
+        configuration:
+          text: Please provide PagerDuty API token and Incident ID to send diagnostics
+            to Incident.
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: progress-badge
+      nodeStep: false
+      type: pd-note-step
+    keepgoing: false
+    strategy: node-first
+  tags: kubernetes
+  uuid: 6774c554-9a54-4c66-b190-b598ed9bf2ab
+

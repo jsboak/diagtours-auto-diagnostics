@@ -1,0 +1,82 @@
+- defaultTab: nodes
+  description: |-
+    This job shows the alloccated memory for each host
+
+    The information showed in the output may be useful to toubleshoot memory performance issues or to have a general idea of the amount of allocated memory.
+
+    ## Configuration
+
+    This step uses the SQL Run Command plugin.
+    Be sure to provide a username and a key-storage path for the connection parameters in the Job step.
+    Upon executing, choose the database host from the **Nodes** section.
+  executionEnabled: true
+  group: MySQL
+  id: ab4856f6-249b-47d8-9557-bc171d779a7d
+  loglevel: INFO
+  name: Current Allocated Memory By Host
+  nodeFilterEditable: false
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: .*
+  nodesSelectedByDefault: true
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: |-
+      ID of the PagerDuty incident that should receive the diagnostics queried from this automation.
+      This field is required to invoke this Job.
+    label: PagerDuty Incident ID
+    name: pd_incident_id
+    required: true
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - configuration:
+        commit: 'false'
+        jdbcDriver: org.mariadb.jdbc.Driver
+        jdbcUrl: jdbc:mysql://${node.hostname}:3306
+        scriptBody: |+
+          select host,current_allocated from sys.memory_by_host_by_current_bytes;
+
+        statementDelimiter: ;
+        user: database-username
+      description: Retrieve Memory by Host
+      nodeStep: true
+      type: org.rundeck.sqlrunner.SQLRunnerNodeStepPlugin
+    keepgoing: false
+    strategy: node-first
+  tags: mysql
+  uuid: ab4856f6-249b-47d8-9557-bc171d779a7d
+

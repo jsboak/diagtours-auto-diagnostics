@@ -1,0 +1,63 @@
+- defaultTab: nodes
+  description: |-
+    List the topics in Kafka.
+
+    This job lists the topics in Kafka.  Because this job runs a command on a remote-node, an [Enterprise Runner](https://docs.rundeck.com/docs/administration/runner/#enterprise-runner-overview) may be required.
+  executionEnabled: true
+  group: Kafka
+  id: c6749815-15c5-4373-8aa3-5c25c3ec595a
+  loglevel: INFO
+  name: List Kafka Topics
+  nodeFilterEditable: true
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: .*
+  nodesSelectedByDefault: true
+  notification:
+    onfailure:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Failed for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onstart:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Started for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+    onsuccess:
+      plugin:
+        configuration:
+          incident_id: ${option.pd_incident_id}
+          note: 'Automated Diagnostics job "${job.project}/${job.group}/${job.name}"
+            Succeeded for incident "${option.pd_incident_id}".   See the full Process
+            Automation log at: ${job.url}#output'
+        type: pd-note-incident-notification
+  notifyAvgDurationThreshold: null
+  options:
+  - description: The address of the kafka hostname.
+    label: Hostname Address
+    name: hostname-address
+    value: localhost:9092
+  plugins:
+    ExecutionLifecycle: null
+  scheduleEnabled: true
+  schedules: []
+  sequence:
+    commands:
+    - description: List the kafka topics
+      exec: kafka-topics.sh --bootstrap-server ${option.broker-addres} --list
+    keepgoing: false
+    strategy: node-first
+  uuid: c6749815-15c5-4373-8aa3-5c25c3ec595a
+
